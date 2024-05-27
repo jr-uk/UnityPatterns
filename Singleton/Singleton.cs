@@ -1,55 +1,68 @@
 using UnityEngine;
-/// <summary>
-/// Implementation:
-///     public class MonoSingleton<T> : MonoBehaviour where T : MonoBehaviour
-///     
-///     protected override void Awake()
-///     { 
-///         base.Awake(); // Maybe needed for the base class functionality, maybe not!
-///     } 
-/// </summary>
-/// <typeparam name="T">Manager Type</typeparam>
-public class MonoSingleton<T> : MonoBehaviour where T : MonoBehaviour
-{
-    private static T _instance;
-    private static readonly object _lock = new object();
-    [SerializeField] private bool _persistAcrossScenes = true;
 
-    public static T Instance
+namespace Patterns
+{
+    public class Singleton<T> : MonoBehaviour
+        where T : Component
     {
-        get
+        private static T _instance;
+        public static T Instance
         {
-            lock (_lock)
+            get
             {
                 if (_instance == null)
                 {
-                    _instance = FindObjectOfType<T>();
+                    _instance = (T)FindObjectOfType(typeof(T));
+
                     if (_instance == null)
                     {
-                        var singletonObject = new GameObject();
-                        _instance = singletonObject.AddComponent<T>();
-                        singletonObject.name = typeof(T).ToString() + " (Singleton)";
+                        SetupInstance();
+                    }
+                    else
+                    {
+                        string typeName = typeof(T).Name;
+
+                        Debug.Log(
+                            "[Singleton] "
+                                + typeName
+                                + " instance already created: "
+                                + _instance.gameObject.name
+                        );
                     }
                 }
+
                 return _instance;
             }
         }
-    }
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    protected virtual void Awake()
-    {
-        lock (_lock)
+        public virtual void Awake()
+        {
+            RemoveDuplicates();
+        }
+
+        private static void SetupInstance()
+        {
+            // lazy instantiation
+            _instance = (T)FindObjectOfType(typeof(T));
+
+            if (_instance == null)
+            {
+                GameObject gameObj = new GameObject();
+                gameObj.name = typeof(T).Name;
+
+                _instance = gameObj.AddComponent<T>();
+                DontDestroyOnLoad(gameObj);
+            }
+        }
+
+        private void RemoveDuplicates()
         {
             if (_instance == null)
             {
                 _instance = this as T;
-                if (_persistAcrossScenes)
-                {
-                    DontDestroyOnLoad(gameObject);
-                }
+                DontDestroyOnLoad(gameObject);
             }
-            else if (_instance != this)
+            else
             {
                 Destroy(gameObject);
             }

@@ -1,94 +1,58 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.AI;
-using Object = System.Object;
 
-// Notes
-// 1. What a finite state machine is
-// 2. Examples where you'd use one
-//     AI, Animation, Game State
-// 3. Parts of a State Machine
-//     States & Transitions
-// 4. States - 3 Parts
-//     Tick - Why it's not Update()
-//     OnEnter / OnExit (setup & cleanup)
-// 5. Transitions
-//     Separated from states so they can be re-used
-//     Easy transitions from any state
-
-public class StateMachine
+namespace Patterns
 {
-   private IState _currentState;
-   
-   private Dictionary<Type, List<Transition>> _transitions = new Dictionary<Type,List<Transition>>();
-   private List<Transition> _currentTransitions = new List<Transition>();
-   private List<Transition> _anyTransitions = new List<Transition>();
-   
-   private static List<Transition> EmptyTransitions = new List<Transition>(0);
+    // handles
+    [Serializable]
+    public class StateMachine<T> : MonoBehaviour
+        where T : MonoBehaviour, IState
+    {
+        public IState CurrentState { get; private set; }
 
-   public void Tick()
-   {
-      var transition = GetTransition();
-      if (transition != null)
-         SetState(transition.To);
-      
-      _currentState?.Tick();
-   }
+        // reference to the state objects
+        private List<IState> _states;
 
-   public void SetState(IState state)
-   {
-      if (state == _currentState)
-         return;
-      
-      _currentState?.OnExit();
-      _currentState = state;
-      
-      _transitions.TryGetValue(_currentState.GetType(), out _currentTransitions);
-      if (_currentTransitions == null)
-         _currentTransitions = EmptyTransitions;
-      
-      _currentState.OnEnter();
-   }
+        // event to notify other objects of the state change
+        public event Action<IState> stateChanged;
 
-   public void AddTransition(IState from, IState to, Func<bool> predicate)
-   {
-      if (_transitions.TryGetValue(from.GetType(), out var transitions) == false)
-      {
-         transitions = new List<Transition>();
-         _transitions[from.GetType()] = transitions;
-      }
-      
-      transitions.Add(new Transition(to, predicate));
-   }
+        // pass in necessary parameters into constructor
+        public StateMachine(T t, List<IState> states)
+        {
+            _states = states;
+        }
 
-   public void AddAnyTransition(IState state, Func<bool> predicate)
-   {
-      _anyTransitions.Add(new Transition(state, predicate));
-   }
+        // set the starting state
+        public void Initialize(IState state)
+        {
+            CurrentState = state;
+            state.Enter();
 
-   private class Transition
-   {
-      public Func<bool> Condition {get; }
-      public IState To { get; }
+            // notify other objects that state has changed
+            stateChanged?.Invoke(state);
+        }
 
-      public Transition(IState to, Func<bool> condition)
-      {
-         To = to;
-         Condition = condition;
-      }
-   }
+        // exit this state and enter another
+        public void TransitionTo(IState nextState)
+        {
+            CurrentState.Exit();
+            CurrentState = nextState;
+            nextState.Enter();
 
-   private Transition GetTransition()
-   {
-      foreach(var transition in _anyTransitions)
-         if (transition.Condition())
-            return transition;
-      
-      foreach (var transition in _currentTransitions)
-         if (transition.Condition())
-            return transition;
+            // notify other objects that state has changed
+            stateChanged?.Invoke(nextState);
+        }
 
-      return null;
-   }
+        // allow the StateMachine to update this state
+        public void Update()
+        {
+            if (CurrentState != null)
+            {
+                CurrentState.Update();
+            }
+        }
+    }
 }

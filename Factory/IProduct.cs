@@ -1,7 +1,14 @@
-/// <summary>
-/// For Factory Implementations
-/// </summary>
-public interface IProduct
+using UnityEngine;
+
+namespace Patterns
 {
-    void OnCreate(); // Example initialization method
+    // a common interface between products
+    public interface IProduct
+    {
+        // add common properties and methods here
+        public string ProductName { get; set; }
+
+        // customize this for each concrete product
+        public void Initialize();
+    }
 }
